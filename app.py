@@ -115,14 +115,15 @@ if tool == "Editor":
         canvas_bg = resize(page_img)
 
     canvas = st_canvas(
-        background_image=canvas_bg,
-        drawing_mode=mode,
-        stroke_width=size,
-        stroke_color=color,
-        fill_color="rgba(0,0,0,0)",
-        height=canvas_bg.height,
-        width=canvas_bg.width,
-        key=str(uuid.uuid4())
+    background_image=canvas_bg,
+    drawing_mode=mode,
+    stroke_width=size,
+    stroke_color=color,
+    fill_color="rgba(0,0,0,0)",
+    height=canvas_bg.height,
+    width=canvas_bg.width,
+    key=f"canvas_{selected_page}"
+        
     )
 
     if st.button("💾 Save Changes"):
