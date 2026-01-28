@@ -72,19 +72,22 @@ if app_mode == "✏️ PDF Direct Editor":
                 else:
                     image = images[0]
             except Exception as e:
-                st.error("Error loading PDF. Check 'packages.txt'.")
+                st.error("Error loading PDF. Check Poppler is installed.")
         else:
             image = Image.open(uploaded_file)
             
         if image:
-            image = image.convert("RGB")
+            # --- Canvas Prep ---
+            image = image.convert("RGB")  # RGB only
             canvas_width = 800
             w_percent = (canvas_width / float(image.size[0]))
             canvas_height = int((float(image.size[1]) * float(w_percent)))
             bg_image = image.resize((canvas_width, canvas_height))
-            bg_array = np.array(bg_image)  # ✅ convert to numpy array
+            bg_array = np.array(bg_image)
+            if bg_array.shape[2] == 4:
+                bg_array = bg_array[:, :, :3]  # drop alpha channel
 
-            # Canvas
+            # --- Draw Canvas ---
             try:
                 canvas_result = st_canvas(
                     fill_color="rgba(255, 255, 255, 0)",
@@ -100,7 +103,7 @@ if app_mode == "✏️ PDF Direct Editor":
             except Exception as e:
                 st.error(f"Canvas Error: {e}")
 
-            # Save Button
+            # --- Save PDF ---
             st.markdown("---")
             if st.button("💾 Save PDF"):
                 if canvas_result and canvas_result.image_data is not None:
