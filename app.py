@@ -1,18 +1,24 @@
 import streamlit as st
 
-# =========================================================
-# 🛠️ EMERGENCY PATCH (Ye code error ko Force-Fix karega)
-# =========================================================
-import streamlit.elements.image
+# ====================================================================
+# 🛠️ SUPER PATCH (Ye Error ko Jabardasti Theek Karega)
+# Is block ko 'import streamlit' ke turant baad rehne dein.
+# ====================================================================
 try:
-    # Naye Streamlit versions mein ye function 'utils' mein chala gaya hai
-    # Hum isse wapas 'image' module mein inject kar rahe hain taki Canvas na phate
+    # Problem: Naye Streamlit versions (1.33+) mein 'image_to_url' 
+    # function ko 'image' module se hata kar 'utils' mein daal diya gaya hai.
+    # Solution: Hum ise wapas 'image' module mein inject kar rahe hain.
+    
+    import streamlit.elements.image
     from streamlit.elements.utils import image_to_url
+    
     if not hasattr(streamlit.elements.image, 'image_to_url'):
         streamlit.elements.image.image_to_url = image_to_url
-except ImportError:
-    pass # Agar ye fail hua, matlab version bahut purana hai, jo ki theek hai
-# =========================================================
+except Exception as e:
+    # Agar ye fail hota hai, to iska matlab version bahut purana hai
+    # ya structure badal gaya hai. Ignore karein.
+    pass
+# ====================================================================
 
 from streamlit_drawable_canvas import st_canvas
 from pdf2image import convert_from_bytes
@@ -27,7 +33,7 @@ import os
 st.set_page_config(page_title="PDF Editor & Converter", layout="wide")
 st.title("📄 Professional PDF Tool")
 
-# --- HELPER: KRUTI DEV ---
+# --- HELPER: UNICODE TO KRUTI DEV ---
 def convert_to_kruti(text):
     text = text.replace("त्र", "=k").replace("ज्ञ", "%").replace("श्र", "J")
     chars = list(text)
@@ -76,7 +82,7 @@ if app_mode == "✏️ PDF Direct Editor":
     if drawing_mode == "text": stroke_color = st.color_picker("Color", "#000000")
     elif drawing_mode == "rect": stroke_color = "#FFFFFF"
 
-    # Initialize variable
+    # Initialize variable to avoid NameError
     canvas_result = None
 
     if uploaded_file:
@@ -116,7 +122,7 @@ if app_mode == "✏️ PDF Direct Editor":
                 )
             except Exception as e:
                 st.error(f"Canvas Error: {e}")
-                st.warning("Patch failed. Ensure requirements.txt uses lowercase 'streamlit'.")
+                st.info("Debugging Info: Magic Patch failed. Please check logs.")
 
             # Save Button
             st.markdown("---")
@@ -189,4 +195,4 @@ elif app_mode == "🔄 Universal Converter":
                     st.download_button("Download", bytes(pdf.output()), "type.pdf")
                 except Exception as e: st.error(e)
             else: st.error("Typewriter.ttf missing")
-                                                
+                
