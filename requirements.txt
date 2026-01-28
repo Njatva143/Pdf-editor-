@@ -9,3 +9,10 @@ numpy
 protobuf==3.20.3
 pytesseract
 fpdf
+pip install 
+streamlit 
+streamlit-drawable-canvas 
+pdf2image 
+pillow 
+pytesseract 
+PyPDF2
