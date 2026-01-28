@@ -1,6 +1,0 @@
-streamlit
-streamlit-drawable-canvas
-pdf2image
-pillow
-pytesseract
-PyPDF2
