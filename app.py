@@ -1,17 +1,4 @@
 import streamlit as st
-
-# ====================================================================
-# 🛠️ MAGIC PATCH (Iske bina Canvas Crash ho jayega)
-# ====================================================================
-try:
-    import streamlit.elements.image
-    from streamlit.elements.utils import image_to_url
-    if not hasattr(streamlit.elements.image, 'image_to_url'):
-        streamlit.elements.image.image_to_url = image_to_url
-except Exception:
-    pass
-# ====================================================================
-
 from streamlit_drawable_canvas import st_canvas
 from pdf2image import convert_from_bytes
 from pdf2docx import Converter
@@ -21,6 +8,16 @@ from docx import Document
 import io
 import os
 import numpy as np
+
+# ----------------- MAGIC PATCH -----------------
+try:
+    import streamlit.elements.image
+    from streamlit.elements.utils import image_to_url
+    if not hasattr(streamlit.elements.image, "image_to_url"):
+        streamlit.elements.image.image_to_url = image_to_url
+except Exception:
+    pass
+# -----------------------------------------------
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="PDF Editor & Converter", layout="wide")
@@ -55,24 +52,25 @@ st.sidebar.title("🚀 Main Menu")
 app_mode = st.sidebar.radio("Go to:", ["✏️ PDF Direct Editor", "🔄 Universal Converter"])
 
 # ==================================================
-# 1. PDF DIRECT EDITOR
+# 1️⃣ PDF DIRECT EDITOR
 # ==================================================
 if app_mode == "✏️ PDF Direct Editor":
     st.header("✏️ PDF Direct Editor")
-    
+
     uploaded_file = st.file_uploader("Upload PDF/Image", type=["pdf", "jpg", "png"], key="canvas_upl")
-    
+
     col1, col2 = st.columns(2)
     with col1:
         drawing_mode = st.selectbox("Tool:", ("rect", "text", "transform"))
     with col2:
         stroke_width = st.slider("Size", 1, 50, 15)
-        
-    stroke_color = "#000000"
-    if drawing_mode == "text": stroke_color = st.color_picker("Color", "#000000")
-    elif drawing_mode == "rect": stroke_color = "#FFFFFF"
 
-    # Variable Initialize
+    stroke_color = "#000000"
+    if drawing_mode == "text":
+        stroke_color = st.color_picker("Color", "#000000")
+    elif drawing_mode == "rect":
+        stroke_color = "#FFFFFF"
+
     canvas_result = None
 
     if uploaded_file:
@@ -82,65 +80,47 @@ if app_mode == "✏️ PDF Direct Editor":
                 images = convert_from_bytes(uploaded_file.read())
                 if len(images) > 1:
                     pg = st.number_input("Page:", 1, len(images), 1)
-                    image = images[pg-1]
+                    image = images[pg - 1]
                 else:
                     image = images[0]
             except Exception as e:
-                st.error("Error loading PDF. Check 'packages.txt'.")
+                st.error("Error loading PDF. Ensure 'poppler' is installed.")
         else:
             image = Image.open(uploaded_file)
-            
-        if image:
-            # --- Canvas Prep ---
-            image = image.convert("RGB")
-            
-            # Resize logic (Screen fit)
-            canvas_width = 800
-            w_percent = (canvas_width / float(image.size[0]))
-            canvas_height = int((float(image.size[1]) * float(w_percent)))
-            
-            # 🔥 FIX: Seedha PIL Image banaya, Array hata diya
-            bg_image = image.resize((canvas_width, canvas_height))
-            
-            # --- Draw Canvas ---
-            try:
-                canvas_result = st_canvas(
-                    fill_color="rgba(255, 255, 255, 1)", 
-                    stroke_width=stroke_width,
-                    stroke_color=stroke_color,
-                    background_image=bg_image, # ✅ Yahan ab seedha Image ja raha hai
-                    height=canvas_height,
-                    width=canvas_width,
-                    drawing_mode=drawing_mode,
-                    key="canvas",
-                    display_toolbar=True
-                )
-            except Exception as e:
-                st.error(f"Canvas Error: {e}")
 
-            # --- Save PDF ---
+        if image:
+            image = image.convert("RGB")
+            # Mobile-friendly canvas width
+            canvas_width = min(800, st.sidebar.slider("Canvas Width", 200, 800, 600))
+            w_percent = canvas_width / float(image.size[0])
+            canvas_height = int(float(image.size[1]) * w_percent)
+            bg_image = image.resize((canvas_width, canvas_height))
+
+            # Canvas
+            canvas_result = st_canvas(
+                fill_color="rgba(255,255,255,0)",
+                stroke_width=stroke_width,
+                stroke_color=stroke_color,
+                background_image=bg_image,
+                height=canvas_height,
+                width=canvas_width,
+                drawing_mode=drawing_mode,
+                key="canvas",
+                display_toolbar=True
+            )
+
+            # Save PDF
             st.markdown("---")
             if st.button("💾 Save PDF"):
-                if canvas_result is not None and canvas_result.image_data is not None:
+                if canvas_result and canvas_result.image_data is not None:
                     try:
-                        # 1. Get Drawing (RGBA)
-                        edited_data = canvas_result.image_data.astype("uint8")
-                        edited_image = Image.fromarray(edited_data)
-
-                        # 2. Get Background (RGBA)
-                        final_output = bg_image.convert("RGBA")
-
-                        # 3. Resize Edited Layer to Match Background
-                        edited_image = edited_image.resize(final_output.size)
-
-                        # 4. Merge
-                        final_output.alpha_composite(edited_image)
-
-                        # 5. Convert to RGB for PDF
-                        final_rgb = final_output.convert("RGB")
-
+                        edited = Image.fromarray(canvas_result.image_data.astype("uint8"), mode="RGBA")
+                        final = bg_image.convert("RGBA")
+                        edited = edited.resize(final.size)
+                        final.alpha_composite(edited)
+                        final = final.convert("RGB")
                         buf = io.BytesIO()
-                        final_rgb.save(buf, format="PDF")
+                        final.save(buf, format="PDF")
                         st.success("✅ Saved Successfully!")
                         st.download_button("📥 Download PDF", buf.getvalue(), "edited_doc.pdf")
                     except Exception as e:
@@ -149,21 +129,25 @@ if app_mode == "✏️ PDF Direct Editor":
                     st.warning("No changes made.")
 
 # ==================================================
-# 2. UNIVERSAL CONVERTER (No changes needed here)
+# 2️⃣ UNIVERSAL CONVERTER
 # ==================================================
 elif app_mode == "🔄 Universal Converter":
     st.header("🔄 Converters")
     tab1, tab2, tab3, tab4 = st.tabs(["PDF->Word", "Word->PDF", "Img->PDF", "Typewriter"])
-    
+
+    # PDF -> Word
     with tab1:
         f = st.file_uploader("PDF", type=['pdf'], key='p2w')
         if f and st.button("Convert to Word"):
-            with open("t.pdf", "wb") as file: file.write(f.read())
+            with open("t.pdf", "wb") as file:
+                file.write(f.read())
             cv = Converter("t.pdf")
             cv.convert("c.docx")
             cv.close()
-            with open("c.docx", "rb") as file: st.download_button("Download", file, "c.docx")
+            with open("c.docx", "rb") as file:
+                st.download_button("Download", file, "c.docx")
 
+    # Word -> PDF
     with tab2:
         f = st.file_uploader("Word", type=['docx'], key='w2p')
         if f and st.button("Convert to PDF"):
@@ -175,22 +159,27 @@ elif app_mode == "🔄 Universal Converter":
                 pdf.set_font("Arial", size=12)
                 for p in doc.paragraphs:
                     safe_text = p.text.encode('latin-1', 'replace').decode('latin-1')
-                    try: pdf.multi_cell(0, 10, safe_text)
-                    except: pass
+                    try:
+                        pdf.multi_cell(0, 10, safe_text)
+                    except:
+                        pass
                 st.download_button("Download", bytes(pdf.output()), "doc.pdf")
-            except Exception as e: st.error(e)
+            except Exception as e:
+                st.error(e)
 
+    # Images -> PDF
     with tab3:
-        imgs = st.file_uploader("Images", type=['jpg','png'], accept_multiple_files=True)
+        imgs = st.file_uploader("Images", type=['jpg', 'png'], accept_multiple_files=True)
         if imgs and st.button("Convert"):
             pil = [Image.open(i).convert("RGB") for i in imgs]
             b = io.BytesIO()
             pil[0].save(b, format="PDF", save_all=True, append_images=pil[1:])
             st.download_button("Download", b.getvalue(), "images.pdf")
-            
+
+    # Hindi Typewriter
     with tab4:
         txt = st.text_area("Hindi Text:")
-        sz = st.slider("Size", 10, 40, 16)
+        sz = st.slider("Font Size", 10, 40, 16)
         if st.button("Convert"):
             if os.path.exists("Typewriter.ttf"):
                 pdf = FPDF()
@@ -199,76 +188,8 @@ elif app_mode == "🔄 Universal Converter":
                 pdf.set_font("Kruti", size=sz)
                 try:
                     pdf.multi_cell(0, 10, convert_to_kruti(txt))
-                    st.download_button("Download", bytes(pdf.output()), "type.pdf")
-                except Exception as e: st.error(e)
-            else: st.error("Typewriter.ttf missing")
-            st.markdown("---")
-            if st.button("💾 Save PDF"):
-                if canvas_result and canvas_result.image_data is not None:
-                    try:
-                        edited = Image.fromarray(canvas_result.image_data.astype("uint8"), mode="RGBA")
-                        final = bg_image.convert("RGBA")
-                        final.alpha_composite(edited)
-                        final = final.convert("RGB")
-                        buf = io.BytesIO()
-                        final.save(buf, format="PDF")
-                        st.download_button("Download Edited PDF", buf.getvalue(), "edited.pdf")
-                    except Exception as e:
-                        st.error(f"Save failed: {e}")
-                else:
-                    st.warning("No changes made.")
-
-# ==================================================
-# 2. UNIVERSAL CONVERTER
-# ==================================================
-elif app_mode == "🔄 Universal Converter":
-    st.header("🔄 Converters")
-    tab1, tab2, tab3, tab4 = st.tabs(["PDF->Word", "Word->PDF", "Img->PDF", "Typewriter"])
-    
-    with tab1: # PDF to Word
-        f = st.file_uploader("PDF", type=['pdf'], key='p2w')
-        if f and st.button("Convert to Word"):
-            with open("t.pdf", "wb") as file: file.write(f.read())
-            cv = Converter("t.pdf")
-            cv.convert("c.docx")
-            cv.close()
-            with open("c.docx", "rb") as file: st.download_button("Download", file, "c.docx")
-
-    with tab2: # Word to PDF
-        f = st.file_uploader("Word", type=['docx'], key='w2p')
-        if f and st.button("Convert to PDF"):
-            try:
-                doc = Document(f)
-                pdf = FPDF()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                pdf.add_page()
-                pdf.set_font("Arial", size=12)
-                for p in doc.paragraphs:
-                    safe_text = p.text.encode('latin-1', 'replace').decode('latin-1')
-                    try: pdf.multi_cell(0, 10, safe_text)
-                    except: pass
-                st.download_button("Download", bytes(pdf.output()), "doc.pdf")
-            except Exception as e: st.error(e)
-
-    with tab3: # Img to PDF
-        imgs = st.file_uploader("Images", type=['jpg','png'], accept_multiple_files=True)
-        if imgs and st.button("Convert"):
-            pil = [Image.open(i).convert("RGB") for i in imgs]
-            b = io.BytesIO()
-            pil[0].save(b, format="PDF", save_all=True, append_images=pil[1:])
-            st.download_button("Download", b.getvalue(), "images.pdf")
-            
-    with tab4: # Typewriter
-        txt = st.text_area("Hindi Text:")
-        sz = st.slider("Size", 10, 40, 16)
-        if st.button("Convert"):
-            if os.path.exists("Typewriter.ttf"):
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.add_font("Kruti", "", "Typewriter.ttf")
-                pdf.set_font("Kruti", size=sz)
-                try:
-                    pdf.multi_cell(0, 10, convert_to_kruti(txt))
-                    st.download_button("Download", bytes(pdf.output()), "type.pdf")
-                except Exception as e: st.error(e)
-            else: st.error("Typewriter.ttf missing")
+                    st.download_button("Download PDF", bytes(pdf.output()), "type.pdf")
+                except Exception as e:
+                    st.error(e)
+            else:
+                st.error("Typewriter.ttf missing")
