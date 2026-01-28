@@ -1,4 +1,19 @@
 import streamlit as st
+
+# =========================================================
+# 🛠️ EMERGENCY PATCH (Ye code error ko Force-Fix karega)
+# =========================================================
+import streamlit.elements.image
+try:
+    # Naye Streamlit versions mein ye function 'utils' mein chala gaya hai
+    # Hum isse wapas 'image' module mein inject kar rahe hain taki Canvas na phate
+    from streamlit.elements.utils import image_to_url
+    if not hasattr(streamlit.elements.image, 'image_to_url'):
+        streamlit.elements.image.image_to_url = image_to_url
+except ImportError:
+    pass # Agar ye fail hua, matlab version bahut purana hai, jo ki theek hai
+# =========================================================
+
 from streamlit_drawable_canvas import st_canvas
 from pdf2image import convert_from_bytes
 from pdf2docx import Converter
@@ -12,11 +27,7 @@ import os
 st.set_page_config(page_title="PDF Editor & Converter", layout="wide")
 st.title("📄 Professional PDF Tool")
 
-# --- MENU ---
-st.sidebar.title("🚀 Main Menu")
-app_mode = st.sidebar.radio("Go to:", ["✏️ PDF Direct Editor", "🔄 Universal Converter"])
-
-# --- HELPER: UNICODE TO KRUTI ---
+# --- HELPER: KRUTI DEV ---
 def convert_to_kruti(text):
     text = text.replace("त्र", "=k").replace("ज्ञ", "%").replace("श्र", "J")
     chars = list(text)
@@ -43,6 +54,10 @@ def convert_to_kruti(text):
     for c in text: new_text += mapping.get(c, c)
     return new_text
 
+# --- MENU ---
+st.sidebar.title("🚀 Main Menu")
+app_mode = st.sidebar.radio("Go to:", ["✏️ PDF Direct Editor", "🔄 Universal Converter"])
+
 # ==================================================
 # 1. PDF DIRECT EDITOR
 # ==================================================
@@ -61,7 +76,7 @@ if app_mode == "✏️ PDF Direct Editor":
     if drawing_mode == "text": stroke_color = st.color_picker("Color", "#000000")
     elif drawing_mode == "rect": stroke_color = "#FFFFFF"
 
-    # Initialize variable to avoid NameError
+    # Initialize variable
     canvas_result = None
 
     if uploaded_file:
@@ -101,7 +116,7 @@ if app_mode == "✏️ PDF Direct Editor":
                 )
             except Exception as e:
                 st.error(f"Canvas Error: {e}")
-                st.warning("⚠️ कृपया App Delete करें और New App बनाएं।")
+                st.warning("Patch failed. Ensure requirements.txt uses lowercase 'streamlit'.")
 
             # Save Button
             st.markdown("---")
@@ -174,4 +189,4 @@ elif app_mode == "🔄 Universal Converter":
                     st.download_button("Download", bytes(pdf.output()), "type.pdf")
                 except Exception as e: st.error(e)
             else: st.error("Typewriter.ttf missing")
-              
+                                                
