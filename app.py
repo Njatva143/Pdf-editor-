@@ -64,10 +64,9 @@ def add_ocr_layer(image):
 # =====================================================
 # SIDEBAR
 # =====================================================
-st.sidebar.title("🧭 Tools")
 tool = st.sidebar.radio(
     "Mode",
-    ["Editor", "OCR", "Security"]
+    ["Editor", "OCR", "PDF → Word (Editable)", "Security"]
 )
 
 uploaded = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
