@@ -74,6 +74,16 @@ uploaded = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
 if not uploaded:
     st.info("Upload a PDF to start")
     st.stop()
+tool = st.sidebar.radio(
+    "Mode",
+    [
+        "Editor",
+        "OCR",
+        "PDF → Word (Editable)",
+        "Word → PDF",
+        "Security"
+    ]
+)
 
 check_file(uploaded)
 pages = pdf_to_images(uploaded)
@@ -241,6 +251,54 @@ elif tool == "PDF → Word (Editable)":
                     os.remove(pdf_path)
                 if os.path.exists(docx_path):
                     os.remove(docx_path)
+# =====================================================
+# WORD → PDF
+# =====================================================
+elif tool == "Word → PDF":
+
+    st.info(
+        "ℹ️ Edited Word file upload karein aur usse PDF me convert karein."
+    )
+
+    from docx2pdf import convert
+    import tempfile
+    import os
+
+    word_file = st.file_uploader(
+        "Upload Word File (.docx)",
+        type=["docx"]
+    )
+
+    if word_file and st.button("🔁 Convert Word to PDF"):
+        with st.spinner("Converting Word to PDF..."):
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
+                tmp_docx.write(word_file.getbuffer())
+                docx_path = tmp_docx.name
+
+            pdf_path = docx_path.replace(".docx", ".pdf")
+
+            try:
+                convert(docx_path, pdf_path)
+
+                with open(pdf_path, "rb") as f:
+                    st.success("✅ PDF ready")
+                    st.download_button(
+                        "📥 Download PDF",
+                        f.read(),
+                        "converted.pdf",
+                        mime="application/pdf"
+                    )
+
+            except Exception as e:
+                st.error("❌ Conversion failed")
+                st.error(str(e))
+
+            finally:
+                if os.path.exists(docx_path):
+                    os.remove(docx_path)
+                if os.path.exists(pdf_path):
+                    os.remove(pdf_path)
                     
 # =====================================================
 # FINAL EXPORT
