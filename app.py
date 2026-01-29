@@ -101,7 +101,7 @@ if tool == "Editor":
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        mode = st.selectbox("Tool", ["freedraw", "rect", "text"])
+        mode = st.selectbox("Tool", ["freedraw", "edit", "rect", "text"])
     with c2:
         size = st.slider("Size", 1, 40, 5)
     with c3:
@@ -147,6 +147,34 @@ elif tool == "OCR":
         text = add_ocr_layer(page_img)
         st.text_area("Extracted Text", text, height=300)
 
+    if st.button("📄 OCR → Word (Editable)"):
+
+    from docx import Document
+    import tempfile
+    import os
+
+    with st.spinner("Running OCR and creating Word file..."):
+        doc = Document()
+
+        for i, img in enumerate(pages):
+            text = pytesseract.image_to_string(img)
+            doc.add_heading(f"Page {i+1}", level=2)
+            doc.add_paragraph(text)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
+            doc.save(tmp_docx.name)
+
+            with open(tmp_docx.name, "rb") as f:
+                st.success("✅ OCR Word file ready")
+                st.download_button(
+                    "📥 Download OCR Editable Word",
+                    f.read(),
+                    "ocr_editable.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+        os.remove(tmp_docx.name)
+        
 # =====================================================
 # SECURITY MODE
 # =====================================================
@@ -165,7 +193,55 @@ elif tool == "Security":
             "secured.pdf",
             "application/pdf"
         )
+# =====================================================
+# PDF → WORD (EDITABLE)
+# =====================================================
+elif tool == "PDF → Word (Editable)":
 
+    st.info(
+        "ℹ️ Ye feature real text editing ke liye hai.\n"
+        "PDF ko Word (DOCX) me convert karke edit kar sakte hain."
+    )
+
+    from pdf2docx import Converter
+    import tempfile
+    import os
+
+    if st.button("📝 Convert PDF to Word"):
+        with st.spinner("Converting PDF to editable Word..."):
+
+            # Temporary files (cloud-safe)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                tmp_pdf.write(uploaded.getbuffer())
+                pdf_path = tmp_pdf.name
+
+            docx_path = pdf_path.replace(".pdf", ".docx")
+
+            try:
+                cv = Converter(pdf_path)
+                cv.convert(docx_path)
+                cv.close()
+
+                with open(docx_path, "rb") as f:
+                    st.success("✅ Conversion successful")
+                    st.download_button(
+                        "📥 Download Editable Word File",
+                        f.read(),
+                        "editable.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
+            except Exception as e:
+                st.error("❌ Conversion failed")
+                st.error(str(e))
+
+            finally:
+                # Cleanup
+                if os.path.exists(pdf_path):
+                    os.remove(pdf_path)
+                if os.path.exists(docx_path):
+                    os.remove(docx_path)
+                    
 # =====================================================
 # FINAL EXPORT
 # =====================================================
