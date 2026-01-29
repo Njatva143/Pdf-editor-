@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 from pdf2image import convert_from_bytes
-from PIL import Image
+from PIL import Image, ImageDraw
 import pytesseract
 from PyPDF2 import PdfReader, PdfWriter
 from docx import Document
@@ -21,6 +21,7 @@ MAX_MB = 15
 MAX_PAGES = 15
 DPI = 300
 CANVAS_WIDTH = 900
+OCR_LANG = "eng+hin"  # Multi-language OCR
 
 # =====================================================
 # UTILITIES
@@ -31,6 +32,7 @@ def check_file(file):
         st.stop()
 
 def pdf_to_images(file):
+    file.seek(0)
     try:
         pages = convert_from_bytes(file.read(), dpi=DPI)
         if len(pages) > MAX_PAGES:
@@ -47,6 +49,9 @@ def resize(img):
     return img.resize((CANVAS_WIDTH, int(img.height * ratio)))
 
 def save_pdf(images):
+    if not images:
+        st.error("No pages left to save")
+        st.stop()
     buf = io.BytesIO()
     images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
     return buf.getvalue()
@@ -61,18 +66,26 @@ def apply_password(pdf_bytes, password):
     writer.write(out)
     return out.getvalue()
 
+def add_watermark(img, text="CONFIDENTIAL"):
+    wm = img.copy().convert("RGBA")
+    overlay = Image.new("RGBA", wm.size, (255,255,255,0))
+    draw = ImageDraw.Draw(overlay)
+    draw.text((50, 50), text, fill=(255,0,0,120))
+    return Image.alpha_composite(wm, overlay).convert("RGB")
+
+def run_ocr(img):
+    custom_config = r'--oem 3 --psm 6'
+    return pytesseract.image_to_string(img, lang=OCR_LANG, config=custom_config)
+
 # =====================================================
 # SIDEBAR
 # =====================================================
+st.sidebar.markdown("## 🧰 PDF TOOLBOX")
+st.sidebar.markdown("---")
+
 tool = st.sidebar.radio(
     "Mode",
-    [
-        "Editor",
-        "OCR",
-        "PDF → Word (Editable)",
-        "Word → PDF",
-        "Security"
-    ]
+    ["Editor", "OCR", "PDF → Word (Editable)", "Word → PDF", "Security"]
 )
 
 uploaded = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
@@ -84,7 +97,7 @@ check_file(uploaded)
 pages = pdf_to_images(uploaded)
 
 # =====================================================
-# PAGE SELECT
+# PAGE SELECT + DELETE + REORDER
 # =====================================================
 st.sidebar.markdown("### 📑 Pages")
 cols = st.sidebar.columns(3)
@@ -95,17 +108,26 @@ for i, img in enumerate(pages):
         if st.button(f"{i+1}"):
             selected_page = i
 
+if st.sidebar.button("🗑️ Delete Selected Page"):
+    pages.pop(selected_page)
+    st.experimental_rerun()
+
+if len(pages) > 1:
+    new_index = st.sidebar.slider("Move page to position", 1, len(pages), selected_page + 1) - 1
+    if new_index != selected_page:
+        pages.insert(new_index, pages.pop(selected_page))
+        st.experimental_rerun()
+
 page_img = pages[selected_page].convert("RGB")
 canvas_bg = resize(page_img)
 
 # =====================================================
-# EDITOR
+# EDITOR MODE
 # =====================================================
 if tool == "Editor":
-
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        mode = st.selectbox("Tool", ["freedraw", "rect", "text"])
+        mode = st.selectbox("Tool", ["freedraw", "rect", "text", "signature"])
     with c2:
         size = st.slider("Size", 1, 40, 5)
     with c3:
@@ -134,23 +156,25 @@ if tool == "Editor":
         pages[selected_page] = final.convert("RGB")
         st.success("Saved")
 
+    if st.button("💧 Add Watermark"):
+        pages[selected_page] = add_watermark(page_img)
+        st.success("Watermark added")
+
 # =====================================================
-# OCR
+# OCR MODE
 # =====================================================
 elif tool == "OCR":
-
-    st.warning("OCR searchable banata hai, editable nahi")
+    st.warning("OCR makes PDF searchable, not editable")
 
     if st.button("Run OCR on this page"):
-        text = pytesseract.image_to_string(page_img)
+        text = run_ocr(page_img)
         st.text_area("Extracted Text", text, height=300)
 
     if st.button("📄 OCR → Word (Editable)"):
-        with st.spinner("Creating editable Word..."):
+        with st.spinner("Creating Word file..."):
             doc = Document()
-
             for i, img in enumerate(pages):
-                text = pytesseract.image_to_string(img)
+                text = run_ocr(img)
                 doc.add_heading(f"Page {i+1}", level=2)
                 doc.add_paragraph(text)
 
@@ -165,10 +189,9 @@ elif tool == "OCR":
             os.remove(tmp.name)
 
 # =====================================================
-# PDF → WORD
+# PDF → Word
 # =====================================================
 elif tool == "PDF → Word (Editable)":
-
     if st.button("📝 Convert PDF to Word"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
             tmp_pdf.write(uploaded.getbuffer())
@@ -192,12 +215,10 @@ elif tool == "PDF → Word (Editable)":
             os.remove(docx_path)
 
 # =====================================================
-# WORD → PDF
+# Word → PDF
 # =====================================================
 elif tool == "Word → PDF":
-
     word_file = st.file_uploader("Upload Word (.docx)", type=["docx"])
-
     if word_file and st.button("🔁 Convert Word to PDF"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
             tmp.write(word_file.getbuffer())
@@ -218,30 +239,3 @@ elif tool == "Word → PDF":
 
 # =====================================================
 # SECURITY
-# =====================================================
-elif tool == "Security":
-
-    password = st.text_input("Set PDF Password", type="password")
-
-    if st.button("🔐 Save Secured PDF"):
-        pdf = save_pdf(pages)
-        if password:
-            pdf = apply_password(pdf, password)
-
-        st.download_button(
-            "📥 Download Protected PDF",
-            pdf,
-            "secured.pdf"
-        )
-
-# =====================================================
-# FINAL EXPORT
-# =====================================================
-st.markdown("---")
-if st.button("📤 Export Final PDF"):
-    st.download_button(
-        "Download PDF",
-        save_pdf(pages),
-        "final_document.pdf"
-    )
-    
