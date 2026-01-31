@@ -85,7 +85,7 @@ st.sidebar.markdown("---")
 
 tool = st.sidebar.radio(
     "Mode",
-    ["Editor", "OCR", "PDF → Word (Editable)", "Word → PDF", "Security"]
+    ["Editor", "OCR", "PDF → Word (Editable)", "Word → PDF","Image → PDF", "Security"]
 )
 
 uploaded = st.sidebar.file_uploader("Upload PDF", type=["pdf"])
@@ -127,7 +127,7 @@ canvas_bg = resize(page_img)
 if tool == "Editor":
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        mode = st.selectbox("Tool", ["freedraw", "rect", "text", "signature"])
+        mode = st.selectbox("Tool", ["freedraw", "rect", "text", "pdf(editable)","signature"])
     with c2:
         size = st.slider("Size", 1, 40, 5)
     with c3:
@@ -256,6 +256,47 @@ elif tool == "Word → PDF":
             
         except Exception as e:
             st.error(f"Error: {e}")
+# =====================================================
+# TOOL: IMAGE -> PDF (NEW FEATURE)
+# =====================================================
+elif tool == "Image → PDF":
+    st.header("🖼️ Convert Images to PDF")
+    
+    # Multiple images upload karne ka option
+    img_files = st.file_uploader("Upload Images (JPG/PNG)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    
+    if img_files and st.button("Convert to PDF"):
+        try:
+            with st.spinner("Combining images..."):
+                # 1. Saari images ko open karke RGB mode me convert karein
+                pil_images = []
+                for img_file in img_files:
+                    img = Image.open(img_file).convert("RGB")
+                    pil_images.append(img)
+                
+                # 2. PDF me save karein
+                if pil_images:
+                    buf = io.BytesIO()
+                    # Pehli image ko save karte hain aur baki ko append karte hain
+                    pil_images[0].save(buf, format="PDF", save_all=True, append_images=pil_images[1:])
+                    
+                    pdf_bytes = buf.getvalue()
+
+                    st.success(f"✅ Success! {len(pil_images)} images combined.")
+                    
+                    # 3. Download Button
+                    st.download_button(
+                        label="📥 Download PDF",
+                        data=pdf_bytes,
+                        file_name="images_combined.pdf",
+                        mime="application/pdf"
+                    )
+                else:
+                    st.error("No valid images found.")
+                    
+        except Exception as e:
+            st.error(f"Error: {e}")
+            
 
 # =====================================================
 # SECURITY
