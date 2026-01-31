@@ -6,6 +6,11 @@ pytesseract
 PyPDF2
 pdf2docx
 python-docx
+fpdf2
 docx2pdf
 opencv-python-headless
 numpy
+streamlit
+streamlit-drawable-canvas
+pdf2image
+image2pdf
