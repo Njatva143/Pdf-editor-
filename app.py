@@ -215,27 +215,47 @@ elif tool == "PDF → Word (Editable)":
             os.remove(docx_path)
 
 # =====================================================
-# Word → PDF
+# TOOL: WORD -> PDF (FIXED FOR CLOUD)
 # =====================================================
 elif tool == "Word → PDF":
-    word_file = st.file_uploader("Upload Word (.docx)", type=["docx"])
-    if word_file and st.button("🔁 Convert Word to PDF"):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-            tmp.write(word_file.getbuffer())
-            docx_path = tmp.name
+    st.header("📝 Convert Word to PDF")
+    
+    w_file = st.file_uploader("Upload Word File", type=["docx"])
+    
+    if w_file and st.button("Convert to PDF"):
+        try:
+            with st.spinner("Converting..."):
+                # 1. Word file read karein
+                doc = Document(w_file)
+                
+                # 2. PDF banayein
+                pdf = FPDF()
+                pdf.set_auto_page_break(auto=True, margin=15)
+                pdf.add_page()
+                pdf.set_font("Arial", size=12)
+                
+                # 3. Har paragraph ko PDF me likhein
+                for p in doc.paragraphs:
+                    # Encoding fix (Special characters handle karne ke liye)
+                    safe_text = p.text.encode('latin-1', 'replace').decode('latin-1')
+                    if safe_text.strip(): # Khali line ignore karein
+                        pdf.multi_cell(0, 10, safe_text)
+                        pdf.ln(1) # Line break
 
-        pdf_path = docx_path.replace(".docx", ".pdf")
-        convert(docx_path, pdf_path)
+                # 4. Byte Output taiyar karein
+                pdf_bytes = bytes(pdf.output())
 
-        with open(pdf_path, "rb") as f:
+            # 5. Download Button
+            st.success("✅ Conversion Successful!")
             st.download_button(
-                "📥 Download PDF",
-                f.read(),
-                "converted.pdf"
+                label="📥 Download PDF",
+                data=pdf_bytes,
+                file_name="word_converted.pdf",
+                mime="application/pdf"
             )
-
-        os.remove(docx_path)
-        os.remove(pdf_path)
+            
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 # =====================================================
 # SECURITY
